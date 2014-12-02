@@ -135,7 +135,7 @@ chmod +s file
 
 \begin{lstlisting}
 # Sort by the 10th column (flightnum):
-sort -t, -k 10,10 2008.csv
+sort -t, -k 10,10 FILE.csv
 
 -k, --key=POS1[,POS2]
     start a key at POS1, end it at POS 2 (origin 1) 
@@ -148,6 +148,19 @@ sort -t, -k 10,10 2008.csv
  
 \begin{lstlisting}
  awk '/search_pattern/ { action_to_take_on_matches; another_action; }' file_to_parse
+ # remove the header
+ awk -F, '$NR != 1' FILE.csv
+ # Filter awk -F, '$F1 == "txt1" && $F2 == "txt2"' FILE.csv
+ awk -F, '$17 == "DSM" && $18 == "ORD"' FILE.csv
+\end{lstlisting}
+ 
+\filldots
+
+\noindent \textbf {\textcolor {blue} {\em cut}}
+ 
+\begin{lstlisting}
+ # select only columns 3, 5
+ cut -f3,5 -d, FILE.csv
 \end{lstlisting}
  
 \filldots
