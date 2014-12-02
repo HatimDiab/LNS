@@ -1,0 +1,938 @@
+\documentclass[9pt]{amsart}
+\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\geometry{landscape}                % Activate for for rotated page geometry
+\usepackage{multicol}
+\usepackage{hyperref}
+\usepackage[cm]{fullpage}
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{epstopdf}
+\usepackage{color}
+\definecolor{light-gray}{gray}{0.95}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+\usepackage{listings}
+\lstset{ %
+language=C,                % choose the language of the code
+basicstyle=\footnotesize,       % the size of the fonts that are used for the code
+numberstyle=\footnotesize,      % the size of the fonts that are used for the line-numbers
+stepnumber=1,                   % the step between two line-numbers. If it is 1 each line will be numbered
+numbersep=5pt,                  % how far the line-numbers are from the code
+backgroundcolor=\color{light-gray},  % choose the background color. You must add \usepackage{color}
+showspaces=false,               % show spaces adding particular underscores
+showstringspaces=false,         % underline spaces within strings
+showtabs=false,                 % show tabs within strings adding particular underscores
+frame=single,           % adds a frame around the code
+tabsize=2,          % sets default tabsize to 2 spaces
+captionpos=b,           % sets the caption-position to bottom
+breaklines=true,        % sets automatic line breaking
+breakatwhitespace=false,    % sets if automatic breaks should only happen at whitespace
+escapeinside={\%*}{*)}          % if you want to add a comment within your code
+}
+
+% \newenvironment{h1}{\noindent \textbf  {%} }
+\newcommand{\filldots}{\noindent \textbf {\textcolor {blue} {\dotfill}} }
+
+\begin{document}
+\begin{multicols}{2}    % 3 columns
+
+\noindent \textbf {\textcolor {blue} {\em Linux Nifty stuff}}
+
+\begin{lstlisting}
+#!/bin/bash
+mail -s Start_$1 hdiab@ccls.columbia.edu < $1
+eval time -p psql coned -f $1 2>time.txt
+mail -s Table_Created hdiab@ccls.columbia.edu < time.txt
+
+find . -name "*.txt" | xargs -n 64 -P 8 cat >> /tmp/lmDataAfterCleaning/8.cat
+\end{lstlisting}
+
+\noindent \textbf {\textcolor {blue} {\em System Calls}} 
+
+The interface between an application program and the Operating System is through system calls. You don't have to link with C libraries, so the executables can be much smaller.
+
+The OS is responsible for:
+\begin{itemize}
+\item Process Management (starting, running, stopping)
+\item File Management (creating, opening, closing, reading, writing, renaming files)
+\item Memory Management (allocating, deallocating memory)
+\item timing, scheduling, network management 
+\end{itemize}
+
+\noindent To make a system call in 64-bit Linux, place the system call number in rax, then the arguments, in order, in $rdi, rsi, rdx, r10, r8,$ \& $r9$ then invoke syscall (instead of interrupt 0x80), The result value will be in \%rax
+
+\noindent Examples call numbers: 0$\to$sys\_read, 1$\to$sys\_write, 2$\to$sys\_open, 3$\to$sys\_close, 4$\to$sys\_stat, etc...
+
+\noindent Some system calls return information, usually in rax, A value in the range between -4095 and -1 indicates -errno. rcx and r11 are destroyed. 
+
+\noindent \url{http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64}
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em inode}} 
+
+\noindent an inode (index node) is a data structure found in many Unix file systems. Each inode stores all the information about a file system object (file, device node, socket, pipe, etc.). It does not store the file's data content and file name except for certain cases in modern file systems
+
+\begin{lstlisting}
+# ls -i <FileName>
+# stat /etc/passwd
+# find . -inum <inode number> -exec rm -i {} \;
+\end{lstlisting}
+
+iNode attributes:
+\begin{itemize}
+\item The size of the file in bytes.
+\item Device ID (this identifies the device containing the file).
+\item uid \& gid
+\item The file mode which determines the file type and how the file's owner, its group, and others can access the file.
+\item Additional system and user flags to further protect the file (limit its use and modification).
+\item Timestamps telling when the inode itself was last modified (ctime, inode change time), the file content last modified (mtime, modification time), and last accessed (atime, access time). \textcolor {red} {\em nb UNIX or Linux never stores file creation time}
+\item number of links (soft/hard)
+\end{itemize}
+
+\noindent As pointed out earlier, there is no entry for file name in the inode, rather the file name is kept as a separate entry parallel to inode number. The reason for separating out file name from the other information related to same file is for maintaining hard-links to files. This means that once all the other information is separated out from the file name then we can have various file names which point to same inode.
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em set uid/gid/sticky}}
+
+\noindent \textbf {setuid on executables 4...}
+
+\begin{lstlisting}
+#chmod u+s executables
+\end{lstlisting}
+Example
+\begin{lstlisting}
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/type.h>
+#include <unistd.h>
+
+int main ()
+{
+   setuid(0);
+   system("/path/to/shell.sh")
+   return 0;
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+gcc file.c -o file
+chmod +s file
+\end{lstlisting}
+\noindent  \textbf {setgid on folders 2...}
+\begin{lstlisting}
+#chmod g+s folder
+\end{lstlisting}
+
+\noindent \textbf  {sticky bit on folders} 
+
+\noindent The most common use of the sticky bit today is on directories. When the sticky bit is set, only the item's owner, the directory's owner, or the superuser can rename or delete files. Without the sticky bit set, any user with write and execute permissions for the directory can rename or delete contained files, regardless of owner. Typically this is set on the /tmp directory to prevent ordinary users from deleting or moving other users' files.
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em sort}}
+
+\begin{lstlisting}
+# Sort by the 10th column (flightnum):
+sort -t, -k 10,10 2008.csv
+
+-k, --key=POS1[,POS2]
+    start a key at POS1, end it at POS 2 (origin 1) 
+-t, define the separator
+\end{lstlisting}
+
+\filldots
+
+\noindent \textbf {\textcolor {blue} {\em awk}}
+ 
+\begin{lstlisting}
+ awk '/search_pattern/ { action_to_take_on_matches; another_action; }' file_to_parse
+\end{lstlisting}
+ 
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em Networking}}
+
+\noindent {\textcolor {blue} {\em DNS}} 
+
+\noindent Domain Name System (DNS) is an hierarchical distributed naming system for computers, services, or any resource connected to the Internet or a private network. It associates various information with domain names assigned to each of the participating entities.
+
+\noindent DNS distributes the responsibility of assigning domain names and mapping those names to IP addresses by designating authoritative name servers for each domain.
+
+\noindent DNS also specifies the technical functionality of this database service. It defines the DNS protocol, a detailed specification of the data structures and data communication exchanges used in DNS, as part of the Internet Protocol Suite.
+
+\noindent The Internet maintains two principal namespaces, the domain name hierarchy and the Internet Protocol (IP) address spaces. The DNS maintains the domain name hierarchy and provides translation services between it and the address spaces. Internet name servers and a communication protocol implement the Domain Name System. A DNS name server is a server that stores the DNS records for a domain name, such as address (A or AAAA 'IPv6') records, name server (NS) records, and mail exchanger (MX) records (see list of DNS record types); a DNS name server responds with answers to queries against its database.
+
+\noindent {\textcolor {blue} {\em MAC Addresses}} 
+
+
+\noindent {\textcolor {blue} {\em OSI}} 
+
+The OSI model is a 7-layer abstract model that describes an architecture of data communications for networked computers. The layers build upon each other, allowing for abstraction of specific functions in each one. The top (7th) layer is the Application Layer describing methods and protocols of software applications. It is then held that the user is the 8th layer.
+
+According to Bruce Schneier and RSA:
+
+    Layer 8: The individual person.
+    
+    Layer 9: The organization.
+    
+    Layer 10: Government or legal compliance
+\begin{center}
+    \begin{tabular}{| l | p{4.8cm} | p{4.5cm} | }
+    \hline
+    \textbf {Layer} & \textbf {Function} & \textbf {Protocol} \\ \hline
+    7. Application & Network process to application & NNTP, SIP, SSI, DNS, FTP, Gopher, HTTP, NFS, NTP, DHCP, SMPP, SMTP, SNMP, Telnet, BGP \\ \hline
+    6. Presentation & Data representation, encryption and decryption, convert machine dependent data to machine independent data & MIME, SSL, TLS, XDR  \\ \hline
+    5. Session & Interhost communication, managing sessions between applications & Sockets. Session establishment in TCP, RTP, PPTP \\ \hline
+    4. Transport & Reliable delivery of packets between points on a network. & TCP, UDP, SCTP, DCCP . \\ \hline
+    3. Network & Addressing, routing and (not necessarily reliable) delivery of datagrams between points on a network. & P, IPsec, ICMP, IGMP, OSPF, RIP \\ \hline
+    2. Data link & A reliable direct point-to-point data connection (MAC Address). & PPP, SBTV, SLIP  \\ \hline
+    1. Physical & A (not necessarily) reliable direct point-to-point data connection. &  . \\
+    \hline
+    \end{tabular}
+\end{center}
+
+
+\noindent {\textcolor {blue} {\em Load Balancing}} 
+
+\noindent Session balancing does just that, it balances sessions across each WAN link. When Web browsers connect to the Internet, they commonly open multiple sessions, one for the text, another for an image, another for some other image, etc. Each of these sessions can be balanced across the available connections. An FTP application only uses a single session so it is not balanced; however if a secondary FTP connection is made, then it may be balanced so that on the whole, traffic is evenly distributed across the various connections and thus provides an overall increase in throughput.
+
+\noindent When multiple servers are joined to create a cluster. Clusters can use network load balancing whereby simultaneous cluster request are distributed between cluster servers.
+
+\noindent Round robin DNS records is one form of cluster load balancing. It works by creating multiple host records (usually A and/or AAAA) for one machine. As clients make requests, DNS rotates through its list of records.
+
+\noindent In addition to the before mentioned, to configure a terminal server cluster, one needs a load-balancing technology such as Network Load Balancing (NLB) or DNS round robin. A load balancing solution will distribute client connections to each of the terminal servers.
+
+\noindent Terminal Server Session Directory is a feature that allows users to easily and automatically reconnect to a disconnected session in a load balanced Terminal Server farm. The session directory keeps a list of sessions indexed by username and server name. This enables a user, after disconnecting a session, to reconnect to the correct Terminal Server where the disconnected session resides in order to resume working in that session. This reconnection will work even if the user connects from a different client computer.
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em SNMP}} 
+\url {http://en.wikipedia.org/wiki/Simple_Network_Management_Protocol}
+
+Simple Network Management Protocol (SNMP) is an "Internet-standard protocol for managing devices on IP networks". Devices that typically support SNMP include routers, switches, servers, workstations, printers, modem racks, and more.[1] It is used mostly in network management systems to monitor network-attached devices for conditions that warrant administrative attention. SNMP is a component of the Internet Protocol Suite as defined by the Internet Engineering Task Force (IETF). It consists of a set of standards for network management, including an application layer protocol, a database schema, and a set of data objects.
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em ICMP}} 
+\url {http://en.wikipedia.org/wiki/Internet_Control_Message_Protocol}
+
+The Internet Control Message Protocol (ICMP) is one of the core protocols of the Internet Protocol Suite. It is used by network devices, like routers, to send error messages indicating, for example, that a requested service is not available or that a host or router could not be reached. ICMP can also be used to relay query messages. It is assigned protocol number 1
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em GFS}} 
+
+\filldots
+ 
+\noindent \textbf {\textcolor {blue} {\em BigTable}} 
+
+\filldots 
+
+\noindent \textbf {\textcolor {blue} {\em MapReduce}} 
+
+\filldots 
+
+\noindent \textbf {\textcolor {blue} {\em Data Structures}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Linked Lists}} 
+\noindent In computer science, a linked list is a data structure consisting of a group of nodes which together represent a sequence. Under the simplest form, each node is composed of a data and a reference (in other words, a link) to the next node in the sequence; more complex variants add additional links. This structure allows for efficient insertion or removal of elements from any position in the sequence.
+\filldots 
+
+\noindent {\textcolor {blue} {\em Binary Trees}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Tries}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Stacks \& Queues}} 
+
+LIFO or FILO vs FIFO
+Stacks and queues: maximum size to which stack/queue grows:
+{\em {\u Stirling's Approximation}}
+
+$n! \approx \sqrt{2 \pi n} (\frac {n}{e})^n$
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Vector/ArrayLists}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Hash Tables}} 
+
+\noindent In computing, a hash table (map) is a data structure used to implement an associative array, a structure that can map keys to values. A hash table uses a hash function to compute an index into an array of buckets or slots, from which the correct value can be found.
+
+\filldots 
+
+\noindent \textbf {\textcolor {blue} {\em Algorythms}} 
+\noindent 
+\filldots 
+
+\noindent {\textcolor {blue} {\em Recursion}} 
+
+\noindent A recursive algorithm is an algorithm that calls itself on less input
+
+\begin{lstlisting}
+Algorithm A (input)
+begin
+	basis step; /* for min size input */
+	call A(smaller input);
+	combine sub-solutions;
+end;
+\end{lstlisting}
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Divide and Conquer}} 
+\begin{lstlisting}
+divide&conquer(input I)
+begin
+   if (size of input is small enough) then
+        solve directly;
+        return;
+   endif
+   divide I into two or more parts I1, I2,...;
+   call divide&conquer(I1) to get a subsolution S1;
+   call divide&conquer(I2) to get a subsolution S2;
+   ...
+   Merge the subsolutions S1, S2,...into a
+        global solution S;
+end
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em MergeSort}} 
+
+\begin{lstlisting}
+Procedure  Mergesort (input A[1:n], i,j; output B[1:n])
+begin
+   Datatype C[1:n];
+   If i=j then B[i] = A[i]; Return; endif
+   Mergesort (A,i,(i+j)/2;C); /* sorts the first half*/
+   Mergesort(A,(i+j)/2 +1,j;C); /* sorts the second half*/
+   Merge(C,i,j;B); /* merges the two sorted halves into a single sorted list */
+end
+
+Procedure Merge(input: C,i,j; output: B)
+begin
+        int k=(i+j)/2;
+        int u,v,w;  /*  u will scan C[i:k], v will scan C[k+1:j], w will index the out B*/
+        u=i;
+        v=k+1;
+        w=u;
+        while  (u <= k and v <= j) do
+                if C[u] <= C[v] then
+                        B[w]=C[u]; u++;w++;
+		????else
+			B[w]=C[v];v++;w++;
+        		endif
+	endwhile
+        If u > k then
+                Put C[v:j] in B[w:j];
+        Elseif v>j
+                Put C[u:k] in B[w:j];
+	endif 
+end
+
+\end{lstlisting}
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em QuickSort}} 
+
+\noindent Quicksort is a divide and conquer algorithm. Quicksort first divides a large list into two smaller sub-lists: the low elements and the high elements. Quicksort can then recursively sort the sub-lists.
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Breadth First Search}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Depth First Search}} 
+
+\filldots 
+
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Binary Search}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Tree Insert / Find / etc... }} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em $O(n * log(n))$ sorting Algorithms}} 
+
+\filldots 
+
+\noindent \textbf {\textcolor {blue} {\em Concepts}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Bit Manipulation}} 
+
+\noindent Bit manipulation is the act of algorithmically manipulating bits or other pieces of data shorter than a word. Programming tasks that require bit manipulation include low-level device control, error detection and correction algorithms, data compression, encryption algorithms, and optimization. For most other tasks, modern programming languages allow the programmer to work directly with abstractions instead of bits that represent those abstractions. Source code that does bit manipulation makes use of the bitwise operations: AND, OR, XOR, NOT, and bit shifts.
+
+\noindent {\textcolor {blue} {\em Singleton Design Pattern}} 
+
+\noindent The singleton pattern is a design pattern that restricts the Instantiation of a class to one object. This is useful when exactly one object is needed to coordinate actions across the system. The concept is sometimes generalized to systems that operate more efficiently when only one object exists, or that restrict the instantiation to a certain number of objects. The term comes from the mathematical concept of a singleton.
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Factory Design Pattern}} 
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Memory (Stack vs Heap)}} 
+
+\noindent {\textcolor {blue} {\em Stack}} 
+is a special region of computer's memory that stores temporary variables created by each function (including the main() function). The stack is a "FILO" data structure, that is managed and optimized by the CPU quite closely. Every time a function declares a new variable, it is "pushed" onto the stack. Then every time a function exits, all of the variables pushed onto the stack by that function, are freed.
+
+The advantage of using the stack to store variables, is that memory is managed for you. You don't have to allocate memory by hand, or free it once you don't need it any more. What's more, because the CPU organizes stack memory so efficiently, reading from and writing to stack variables is very fast. 
+
+Another feature of the stack to keep in mind, is that there is a limit (varies with OS) on the size of variables that can be store on the stack. This is not the case for variables allocated on the heap.
+
+\begin{lstlisting}
+#include <stdio.h>
+
+double multiplyByTwo (double input) {
+  double twice = input * 2.0;
+  return twice;
+}
+
+int main (int argc, char *argv[])
+{
+  int age = 30;
+  double salary = 12345.67;
+  double myList[3] = {1.2, 2.3, 3.4};
+
+  printf("double your salary is %.3f\n", multiplyByTwo(salary));
+
+  return 0;
+}
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Heap}} 
+ is a region of your computer's memory that is not managed automatically for you, and is not as tightly managed by the CPU. It is a more free-floating region of memory (and is larger). To allocate memory on the heap, you must use malloc() or calloc(), which are built-in C functions. Once you have allocated memory on the heap, you are responsible for using free() to deallocate that memory once you don't need it any more. If you fail to do this, your program will have what is known as a memory leak. That is, memory on the heap will still be set aside (and won't be available to other processes). As we will see in the debugging section, there is a tool called valgrind that can help you detect memory leaks.
+
+Unlike the stack, the heap does not have size restrictions on variable size (apart from the obvious physical limitations of your computer). Heap memory is slightly slower to be read from and written to, because one has to use pointers to access memory on the heap. We will talk about pointers shortly.
+
+Unlike the stack, variables created on the heap are accessible by any function, anywhere in your program. Heap variables are essentially global in scope.
+
+\begin{lstlisting}
+#include <stdio.h>
+#include <stdlib.h>
+
+double *multiplyByTwo (double *input) {
+  double *twice = malloc(sizeof(double));
+  *twice = *input * 2.0;
+  return twice;
+}
+
+int main (int argc, char *argv[])
+{
+  int *age = malloc(sizeof(int));
+  *age = 30;
+  double *salary = malloc(sizeof(double));
+  *salary = 12345.67;
+  double *myList = malloc(3 * sizeof(double));
+  myList[0] = 1.2;
+  myList[1] = 2.3;
+  myList[2] = 3.4;
+
+  double *twiceSalary = multiplyByTwo(salary);
+
+  printf("double your salary is %.3f\n", *twiceSalary);
+
+  free(age);
+  free(salary);
+  free(myList);
+  free(twiceSalary);
+
+  return 0;
+}
+\end{lstlisting}
+
+\filldots 
+
+\noindent {\textcolor {blue} {\em Big-O Time}} 
+\noindent In mathematics, big O notation describes the limiting behavior of a function when the argument tends towards a particular value or infinity, usually in terms of simpler functions. It is a member of a larger family of notations that is called Landau notation, Bachmann?Landau notation (after Edmund Landau and Paul Bachmann), or asymptotic notation. In computer science, big O notation is used to classify algorithms by how they respond (e.g., in their processing time or working space requirements) to changes in input size. In analytic number theory, it is used to estimate the "error committed" while replacing the asymptotic size, or asymptotic mean size, of an arithmetical function, by the value, or mean value, it takes at a large finite argument. A famous example is the problem of estimating the remainder term in the prime number theorem.
+
+\begin{center}
+    \begin{tabular}{| l | l | p{1.5cm} | p{1.5cm} | p{1.5cm} | p{1.5cm} | }
+    \hline
+    \textbf {Structure} & \textbf {Case} & \textbf {Space} & \textbf {Search}& \textbf {Insert} & \textbf {Delete}\\ \hline
+    Hash table & Avg & O(n) & O(1) &O(1)&O(1) \\ \hline
+   & worst & O(n) & O(n) &O(n)&O(n) \\ \hline
+    BST & Avg & O(n) & O(log n) &O(log n)&O(log n) \\ \hline
+   & worst & O(n) & O(n) &O(n)&O(n) \\ \hline
+    Quicksort & Avg & O(log n) & O(n log n) &O(n log n)&O(n log n) \\ \hline
+   & worst & O(n) &O($n^2$) &O($n^2$)&O($n^2$) \\ \hline
+    \hline
+    \end{tabular}
+\end{center}
+
+
+\filldots 
+
+\noindent \textbf {\textcolor {blue} {\em Python}} 
+
+\noindent {\textcolor {blue} {\em Variables}}   
+\begin{lstlisting}
+a, b = 1, 2
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Imports}} 
+
+\begin{lstlisting}
+import subsystem
+import os, sys
+from collections import deque
+import rlcompleter, readline
+readline.parse_and_bind('tab: complete')
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Env \& Progs}}
+With the \_\_name\_\_ set to "\_\_main\_\_" one cane make the file usable as well as an importable module, because the code that parses the command line only runs if the module is executed as the "main" file.
+\begin{lstlisting}
+#!/usr/bin/env python3.3
+# -*- coding: encoding -*-
+# -*- coding: cp-1252 -*-
+if __name__ == '__main__':
+	main()
+\end{lstlisting}
+Argument Passing 
+When passing arguments to a script the script catches them in sys.argv[] list 
+\begin{lstlisting}
+import sys
+for arg in sys.argv:
+	# Do something with each arg
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Arithmetic operations}} 
+\begin{lstlisting}
+/  always returns a float in python3 (returns an integer in python2)
+// returns an integer of floor(x/y)
+\% returns the reminder
+* + -
+round(_, 2) rounds to 2 decimal places
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Strings}} 
+\begin{lstlisting}
+print('some\name')
+print(r'
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Variable scopes}} 
+
+\noindent {\textcolor {blue} {\em Functions}}  
+
+\begin{lstlisting}
+def	function([args])
+	<function body>
+	[return]
+
+function([args])
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Logic and Control}}  
+
+\begin{lstlisting}
+x = int(raw_input("Please enter an integer: "))
+Please enter an integer: 42
+if x < 0:
+	x = 0
+	print 'Negative changed to zero'
+elif x == 0:
+	print 'Zero'
+else:
+	print 'More'
+	
+for w in words:
+	print w, len(w)
+	
+break
+continue
+pass
+
+while True:
+	pass
+	
+range(x) -> [0,1,...,x-1]
+range(0, 10, 3) -> [0, 3, 6, 9]
+
+\end{lstlisting}
+
+Event-Driven programming
+
+String processing
+
+\noindent {\textcolor {blue} {\em Lists \& List Menthods}} 
+
+\begin{lstlisting}
+L = ['spam', 'eggs', 100, 1234]
+L[:]
+L[0:2] = [1, 12]
+# Insert (a copy of) itself at the beginning
+L[:0] = a
+L.append(x)
+L.extend(L2)
+L.insert(i,x)
+L.remove(x)
+L.pop([i])
+L.index(x)
+L.count(x)
+L.sort()
+L.reverse()
+
+del L[0]
+del L[2:4]
+del L[:]
+
+for i, v in enumerate(['tic', 'tac', 'toe']):
+	print i, v
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Functional Programming Tools}}
+
+\begin{lstlisting}
+def f(x): return x % 2 != 0 and x % 3 != 0 #compute a sequence of numbers not divisible by 2 and 3
+filter(f, range(2, 25)) #returns a sequence consisting of those items from the sequence for which function(item) is true
+[5, 7, 11, 13, 17, 19, 23]
+
+def cube(x): return x*x*x
+map(cube, range(1, 11)) #map(function, sequence) calls function(item) for each of the sequence?s items and returns a list of the return values
+[1, 8, 27, 64, 125, 216, 343, 512, 729, 1000]
+
+seq = range(8)
+def add(x, y): return x+y
+map(add, seq, seq)
+[0, 2, 4, 6, 8, 10, 12, 14]
+
+#reduce(function, sequence) returns a single value constructed by calling the binary function function on the first two items of the sequence, then on the result and the next item, and so on.
+def add(x,y): return x+y
+reduce(add, range(1, 11))
+55
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em List Comprehension}} 
+
+\begin{lstlisting}
+[(x, y) for x in [1,2,3] for y in [3,1,4] if x != y]
+[(1, 3), (1, 4), (2, 3), (2, 1), (2, 4), (3, 1), (3, 4)]
+
+vec = [-4, -2, 0, 2, 4]
+[x**2 for x in vec if x >= 0]
+[0, 4, 16]
+
+freshfruit = ['  banana', '  loganberry ', 'passion fruit  ']
+[weapon.strip() for weapon in freshfruit]
+['banana', 'loganberry', 'passion fruit']
+
+[(x, x**2) for x in range(6)]
+[(0, 0), (1, 1), (2, 4), (3, 9), (4, 16), (5, 25)]
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Using Lists as Stacks}}
+\begin{lstlisting}
+stack = [3, 4, 5]
+stack.append(6)
+stack.append(7)
+stack
+[3, 4, 5, 6, 7]
+stack.pop()
+7
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Using Lists as Queue}}
+
+\begin{lstlisting}
+from collections import deque
+queue = deque(["Eric", "John", "Michael"])
+queue.append("Terry")
+queue.popleft()
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Tuples}}
+\begin{lstlisting}
+t = 12345, 54321, 'hello!'
+t[0]
+12345
+x, y, z = t
+v = ([1, 2, 3], [3, 2, 1])
+empty = ()
+singleton = 'hello'
+\end{lstlisting}
+
+Sets
+\begin{lstlisting}
+basket = ['apple', 'orange', 'apple', 'pear', 'orange', 'banana']
+fruit = set(basket) 
+fruit
+set(['orange', 'pear', 'apple', 'banana'])
+
+a = set('aaaavvvvv')
+a
+set(['a', 'v'])
+\end{lstlisting}
+
+
+\noindent {\textcolor {blue} {\em Dictionaries}}   
+\begin{lstlisting}
+tel = {'jack': 4098, 'sape': 4139}
+del tel['sape']
+tel.keys()
+dd = dict([('sape', 4139), ('guido', 4127), ('jack', 4098)])
+
+[k for k, v in d.items() if v > 6]
+
+for k,v in d.items():
+	print k,v
+for val in d.values():
+	print val
+\end{lstlisting}
+
+\begin{lstlisting}
+import os, sys
+from stat import *
+from pwd import getpwuid
+
+users = {}
+
+def walktree(top, callback):
+    '''recursively descend the directory tree rooted at top,
+       calling the callback function for each regular file'''
+    global users
+
+    for f in os.listdir(top):
+        pathname = os.path.join(top, f)
+        fmode = os.stat(pathname)
+        mode = fmode[ST_MODE]
+        if S_ISDIR(mode):
+            # It's a directory, recurse into it
+            if fmode[ST_UID] in users:
+                users[fmode[ST_UID]][2] += 1
+            else:
+                pass
+            walktree(pathname, callback)
+        elif S_ISREG(mode):
+            # It's a file, call the callback function
+            callback(pathname)
+        else:
+            # Unknown file type, print a message
+            print 'Skipping %s' % pathname
+
+def visitfile(file):
+    global users
+    fmode = os.stat(file)
+    if fmode[ST_UID] in users:
+        users[fmode[ST_UID]][0] += fmode[ST_SIZE]
+        users[fmode[ST_UID]][1] += 1
+    else:
+        users[fmode[ST_UID]] = [0,0,0]
+        users[fmode[ST_UID]][0] += fmode[ST_SIZE]
+        users[fmode[ST_UID]][1] += 1
+
+if __name__ == '__main__':
+    walktree(sys.argv[1], visitfile)
+    for i in users:
+        print getpwuid(i)[0], users[i]
+\end{lstlisting}        
+
+\noindent {\textcolor {blue} {\em OO programming}}   
+
+\begin{lstlisting}
+class ImageInfo:
+    def __init__(self, center, size, radius = 0, lifespan = None, animated = False):
+        self.center = center
+        self.size = size
+        self.radius = radius
+        if lifespan:
+            self.lifespan = lifespan
+        else:
+            self.lifespan = float('inf')
+        self.animated = animated
+
+    def get_center(self):
+        return self.center
+
+    def get_size(self):
+        return self.size
+
+    def get_radius(self):
+        return self.radius
+
+    def get_lifespan(self):
+        return self.lifespan
+
+    def get_animated(self):
+        return self.animated
+
+def angle_to_vector(ang):
+    return [math.cos(ang), math.sin(ang)]
+
+def g_collide(obj,rock_set):
+    global num_rocks
+    collide = False
+    rs = set([])
+    for r in rock_set:
+        if r.collide(obj):
+            collide = True
+            rs.add(r)
+            num_rocks -= 1
+    rock_set.difference_update(rs)
+    return collide 
+ 
+class Ship:
+    def __init__(self, pos, vel, angle, image, info):
+        self.pos = [pos[0],pos[1]]
+        self.vel = [vel[0],vel[1]]
+        self.thrust = False
+        self.angle = angle
+        self.angle_vel = 0
+        self.image = image
+        self.image_center = info.get_center()
+        self.image_size = info.get_size()
+        self.radius = info.get_radius()
+        self.forward = angle_to_vector(self.angle)
+        self.acc = 0.1
+        
+    def get_pos(self):
+        return self.pos
+    
+    def get_radius(self):
+        return self.radius
+
+    def draw(self,canvas):
+        self.pos[0],self.pos[1] = self.pos[0]%WIDTH,self.pos[1]%HEIGHT
+        if self.thrust:
+            canvas.draw_image(self.image,[self.image_center[0]+90,self.image_center[1]], self.image_size,self.pos, self.image_size, self.angle)
+        else:
+            canvas.draw_image(self.image,self.image_center, self.image_size,self.pos, self.image_size, self.angle)
+
+    def update(self):
+        c = 0.01
+        self.angle += self.angle_vel
+        self.pos[0] += self.vel[0]
+        self.pos[1] += self.vel[1]
+        self.vel[0] *= (1-c)
+        self.vel[1] *= (1-c)
+        self.forward = angle_to_vector(self.angle)
+        if self.thrust:
+            self.vel[0] += self.acc * self.forward[0]
+            self.vel[1] += self.acc * self.forward[1]
+
+    def shoot(self):
+        #global a_missile
+        forward = angle_to_vector(self.angle)
+        missile_pos = [self.pos[0] + self.radius * forward[0], self.pos[1] + self.radius * forward[1]]
+        missile_vel = [self.vel[0] + 6 * forward[0], self.vel[1] + 6 * forward[1]]
+        return  Sprite(missile_pos, missile_vel, self.angle, 0, missile_image, missile_info, missile_sound)
+    
+    def set_thrust(self,thrust):
+        self.thrust = thrust
+    
+    def set_angle(self,ang_vel):
+        self.angle += ang_vel
+    
+    def get_angle(self):
+        return self.angle 
+        
+    def set_angle_vel(self,ang_acc):
+        self.angle_vel += ang_acc
+        
+my_ship = Ship([WIDTH / 2, HEIGHT / 2], [0, 0], 0, ship_image, ship_info)
+\end{lstlisting}
+
+Linked Lists
+\begin{lstlisting}
+#! /usr/bin/env python
+
+class node:
+    def __init__(self, data = None, next = None):
+        self.data = data # contains the data
+        self.next = next # contains the reference to the next node
+
+class linked_list:
+    def __init__(self):
+        self.cur_node = None
+
+    def add_node(self, data):
+        new_node = node() # create a new node
+        new_node.data = data
+        new_node.next = self.cur_node # link the new node to the 'previous' node.
+        self.cur_node = new_node #  set the current node to the new one.
+
+    def list_print(self):
+        node = self.cur_node # cant point to ll!
+        while node:
+            print node.data
+            node = node.next
+
+ll = linked_list()
+ll.add_node(1)
+ll.add_node(2)
+ll.add_node(3)
+
+ll.list_print()
+\end{lstlisting}
+
+\filldots 
+
+\noindent \textbf {\textcolor {blue} {\em 20 Linux System Monitoring Tools Every SysAdmin Should Know}} 
+
+\noindent {\textcolor {blue} {\em Process Activity Command}} 
+
+\begin{lstlisting}
+# top
+# mpstat
+# mpstat -P ALL
+# sar
+# nohup sar -o output.file 12 8 >/dev/null 2>&1 &
+# ps -eo pcpu,pid,user,args | sort -k 1 -r | head -10
+# iostat
+# iostat -xtc 5 3
+\end{lstlisting}
+
+t $\to$toggle summary information off and on
+
+m$\to$toggle memory information off and on
+
+A$\to$Sorts the display by top consumers of various system resources. Useful for quick identification of performance-hungry tasks on a system
+
+f$\to$Enters an interactive configuration screen for top. Helpful for setting up top for a specific task.
+
+o$\to$Enables you to interactively select the ordering within top
+
+r $\to$renice
+
+k$\to$kill
+
+z$\to$toggle color/mono
+
+\noindent {\textcolor {blue} {\em System Activity, Hardware and System Information}} 
+
+\begin{lstlisting}
+# vmstat
+\end{lstlisting}
+
+\noindent {\textcolor {blue} {\em Find Out Who Is Logged on And What They Are Doing}} 
+
+\begin{lstlisting}
+# w
+# w <username>
+\end{lstlisting}
+
+\filldots 
+
+
+\end{multicols}
+\end{document}  
